@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecture 4: Matrix Decompositions</title>
+    
+    <!-- React & ReactDOM (Version 18) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (Version 7 - Required for modern JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-serif { font-family: 'Noto Serif', serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        @media (prefers-color-scheme: dark) {
+            ::-webkit-scrollbar-thumb { background: #475569; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    
+    <!-- Loading State -->
+    <div id="root" class="flex items-center justify-center min-h-screen text-slate-500">
+        Loading Interactive Lecture...
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, Fragment } = React;
+
+        // --- Icons ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const icons = {
+                ArrowRight: <path d="M5 12h14M12 5l7 7-7 7"/>,
+                ArrowLeft: <path d="M19 12H5M12 19l-7-7 7-7"/>,
+                Menu: <path d="M4 6h16M4 12h16M4 18h16"/>,
+                CheckCircle2: <g><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></g>,
+                XCircle: <g><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></g>,
+                Calculator: <g><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01"/></g>,
+                Move: <path d="M12 2v20M2 12h20M5 9l-3 3 3 3M9 5l3-3 3 3M19 9l3 3-3 3M15 19l-3 3-3-3"/>,
+                TrendingUp: <path d="m22 7-8.5 8.5-5-5L2 17.5M22 17v-10h-10"/>,
+                Grid: <g><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V3"/></g>,
+                Lightbulb: <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-1 1.5-2.4 1.5-3.8 0-3.2-2.7-5.7-6-5.7-3.3 0-6 2.5-6 5.7 0 1.4.5 2.8 1.5 3.8.8.8 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/>,
+                Sigma: <path d="M18 7V4H6l6 8-6 8h12v-3"/>,
+                Layers: <g><path d="m12.83 2.12-.27-.12a.6.6 0 0 0-.27-.12l-7 2.12a.6.6 0 0 0-.41.56v14a.6.6 0 0 0 .4.56l7 2.12.27.12.27-.12 7-2.12a.6.6 0 0 0 .4-.56v-14a.6.6 0 0 0-.4-.56z"/><path d="m22 12-7.5 2.5M2 12l7.5 2.5M2 7l7.5 2.5M22 7l-7.5 2.5"/></g>
+            };
+
+            return (
+                <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width={size} 
+                    height={size} 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    className={className}
+                >
+                    {icons[name] || <circle cx="12" cy="12" r="10"/>}
+                </svg>
+            );
+        };
+
+        const Card = ({ children, className = "" }) => (
+            <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden ${className}`}>
+                {children}
+            </div>
+        );
+
+        const Button = ({ onClick, disabled, children, variant = "primary", className = "" }) => {
+            const base = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 active:scale-95";
+            const variants = {
+                primary: "bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/20",
+                secondary: "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100",
+                outline: "border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-500 hover:text-blue-500",
+                ghost: "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            };
+            return (
+                <button onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${className}`}>
+                    {children}
+                </button>
+            );
+        };
+
+        const VectorPlayground = () => {
+            const [matrix, setMatrix] = useState({ a: 3, b: -2, c: 1, d: 0 }); 
+            const [vector, setVector] = useState({ x: 1, y: 1 });
+            const svgRef = useRef(null);
+            const [isDragging, setIsDragging] = useState(false);
+            
+            const transformed = {
+                x: matrix.a * vector.x + matrix.b * vector.y,
+                y: matrix.c * vector.x + matrix.d * vector.y
+            };
+
+            const crossProduct = vector.x * transformed.y - vector.y * transformed.x;
+            const dotProduct = vector.x * transformed.x + vector.y * transformed.y;
+            const isEigen = Math.abs(crossProduct) < 0.5 && (Math.abs(vector.x) > 0.1 || Math.abs(vector.y) > 0.1);
+            const eigenvalue = isEigen ? (dotProduct / (vector.x**2 + vector.y**2)).toFixed(2) : null;
+
+            const handleDrag = (e) => {
+                if (!isDragging || !svgRef.current) return;
+                const rect = svgRef.current.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                const scale = 20;
+                const newX = (clientX - rect.left - centerX) / scale;
+                const newY = -(clientY - rect.top - centerY) / scale; 
+                
+                setVector({ 
+                    x: Math.max(-8, Math.min(8, newX)), 
+                    y: Math.max(-8, Math.min(8, newY)) 
+                });
+            };
+
+            const setPreset = (type) => {
+                switch(type) {
+                case 'example1': setMatrix({ a: 3, b: -2, c: 1, d: 0 }); break; 
+                case 'scaling': setMatrix({ a: 2, b: 0, c: 0, d: 2 }); break;
+                case 'shear': setMatrix({ a: 1, b: 1, c: 0, d: 1 }); break;
+                case 'rotation': setMatrix({ a: 0, b: -1, c: 1, d: 0 }); break;
+                default: break;
+                }
+            };
+
+            return (
+                <div className="flex flex-col gap-4">
+                    <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                            <div className="text-sm font-medium text-slate-500 uppercase tracking-wider">Interactive Matrix Transformation</div>
+                            <div className="flex gap-2 text-xs">
+                                <button onClick={() => setPreset('example1')} className="px-2 py-1 bg-white dark:bg-slate-800 border rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Ex 1</button>
+                                <button onClick={() => setPreset('scaling')} className="px-2 py-1 bg-white dark:bg-slate-800 border rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Scale</button>
+                                <button onClick={() => setPreset('shear')} className="px-2 py-1 bg-white dark:bg-slate-800 border rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Shear</button>
+                            </div>
+                        </div>
+
+                        <div 
+                            className="relative w-full h-64 bg-white dark:bg-slate-800 rounded-lg shadow-inner overflow-hidden cursor-crosshair touch-none select-none"
+                            ref={svgRef}
+                            onMouseDown={() => setIsDragging(true)}
+                            onTouchStart={() => setIsDragging(true)}
+                            onMouseMove={handleDrag}
+                            onTouchMove={handleDrag}
+                            onMouseUp={() => setIsDragging(false)}
+                            onTouchEnd={() => setIsDragging(false)}
+                            onMouseLeave={() => setIsDragging(false)}
+                        >
+                            <div className="absolute inset-0 opacity-10 pointer-events-none" 
+                                style={{ 
+                                    backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)', 
+                                    backgroundSize: '20px 20px',
+                                    backgroundPosition: '50% 50%'
+                                }}>
+                            </div>
+                            
+                            <div className="absolute top-1/2 left-0 w-full h-px bg-slate-300 dark:bg-slate-600"></div>
+                            <div className="absolute left-1/2 top-0 h-full w-px bg-slate-300 dark:bg-slate-600"></div>
+
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                                <defs>
+                                    <marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+                                    </marker>
+                                    <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill={isEigen ? "#22c55e" : "#ef4444"} />
+                                    </marker>
+                                </defs>
+                                
+                                <g transform={`translate(${svgRef.current ? svgRef.current.clientWidth/2 : 150}, ${svgRef.current ? svgRef.current.clientHeight/2 : 150})`}>
+                                    <line 
+                                        x1="0" y1="0" 
+                                        x2={vector.x * 20} y2={-vector.y * 20} 
+                                        stroke="#3b82f6" 
+                                        strokeWidth="3" 
+                                        markerEnd="url(#arrowhead-blue)"
+                                    />
+                                    <line 
+                                        x1="0" y1="0" 
+                                        x2={transformed.x * 20} y2={-transformed.y * 20} 
+                                        stroke={isEigen ? "#22c55e" : "#ef4444"} 
+                                        strokeWidth="3" 
+                                        strokeDasharray={isEigen ? "0" : "5,5"}
+                                        markerEnd="url(#arrowhead-red)"
+                                        opacity="0.8"
+                                    />
+                                    
+                                    {isEigen && (
+                                        <line 
+                                        x1={-vector.x * 200} y1={vector.y * 200}
+                                        x2={vector.x * 200} y2={-vector.y * 200}
+                                        stroke="#22c55e"
+                                        strokeWidth="1"
+                                        strokeDasharray="2,2"
+                                        opacity="0.5"
+                                        />
+                                    )}
+                                </g>
+                            </svg>
+
+                            <div className="absolute bottom-2 left-2 right-2 text-center pointer-events-none">
+                                <span className="bg-white/80 dark:bg-slate-900/80 px-3 py-1 rounded-full text-xs font-medium shadow backdrop-blur-sm text-slate-700 dark:text-slate-200">
+                                Drag the blue vector (Input)
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className={`p-3 rounded-lg border-l-4 transition-colors ${isEigen ? 'bg-green-50 border-green-500 dark:bg-green-900/20' : 'bg-slate-50 border-blue-500 dark:bg-slate-800'}`}>
+                                <h4 className="font-semibold text-sm mb-1">Status</h4>
+                                {isEigen ? (
+                                    <div className="text-green-600 dark:text-green-400 font-bold flex items-center gap-2">
+                                        <Icon name="CheckCircle2" size={18} />
+                                        EIGENVECTOR FOUND!
+                                    </div>
+                                ) : (
+                                    <div className="text-slate-500 dark:text-slate-400 text-sm">
+                                        Vectors are not parallel.<br/>
+                                        Keep dragging!
+                                    </div>
+                                )}
+                            </div>
+                            <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 font-mono text-sm">
+                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-1 mb-1">
+                                    <span className="text-blue-500">x (Input)</span>
+                                    <span>[{vector.x.toFixed(1)}, {vector.y.toFixed(1)}]</span>
+                                </div>
+                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-1 mb-1">
+                                    <span className={isEigen ? "text-green-500 font-bold" : "text-red-500"}>Ax (Output)</span>
+                                    <span>[{transformed.x.toFixed(1)}, {transformed.y.toFixed(1)}]</span>
+                                </div>
+                                {isEigen && (
+                                    <div className="flex justify-between pt-1 font-bold bg-green-100 dark:bg-green-900/30 -mx-1 px-1 rounded text-green-800 dark:text-green-200">
+                                        <span>λ (Eigenvalue)</span>
+                                        <span>{eigenvalue}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const DeterminantCalc = () => {
+            const [vals, setVals] = useState([
+                [3, 1, 0],
+                [-2, -4, 3],
+                [5, 4, -2]
+            ]);
+            const [activeCell, setActiveCell] = useState(null);
+
+            const getCofactor = (row, col) => {
+                const minor = [];
+                for(let i=0; i<3; i++) {
+                if(i===row) continue;
+                for(let j=0; j<3; j++) {
+                    if(j===col) continue;
+                    minor.push(vals[i][j]);
+                }
+                }
+                return minor;
+            };
+
+            const calculateDet = () => {
+                const m = vals;
+                return (
+                m[0][0] * (m[1][1]*m[2][2] - m[1][2]*m[2][1]) -
+                m[0][1] * (m[1][0]*m[2][2] - m[1][2]*m[2][0]) +
+                m[0][2] * (m[1][0]*m[2][1] - m[1][1]*m[2][0])
+                );
+            };
+
+            return (
+                <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                    
+                    <div className="bg-slate-100 dark:bg-slate-900 p-6 rounded-xl flex justify-center items-center">
+                    <div className="relative">
+                        <div className="absolute -left-4 top-0 bottom-0 w-4 border-l-2 border-t-2 border-b-2 border-slate-800 dark:border-slate-200 rounded-l-lg"></div>
+                        <div className="absolute -right-4 top-0 bottom-0 w-4 border-r-2 border-t-2 border-b-2 border-slate-800 dark:border-slate-200 rounded-r-lg"></div>
+                        
+                        <div className="grid grid-cols-3 gap-2">
+                        {vals.map((row, r) => (
+                            row.map((val, c) => (
+                            <input
+                                key={`${r}-${c}`}
+                                type="number"
+                                value={val}
+                                onChange={(e) => {
+                                const newVals = [...vals];
+                                newVals[r][c] = Number(e.target.value);
+                                setVals(newVals);
+                                }}
+                                onFocus={() => setActiveCell({r, c})}
+                                className={`
+                                w-12 h-12 text-center rounded font-mono font-bold text-lg outline-none transition-all text-slate-900 dark:text-slate-100
+                                ${activeCell && (activeCell.r === r || activeCell.c === c) ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-white dark:bg-slate-800'}
+                                ${activeCell && activeCell.r === r && activeCell.c === c ? 'ring-2 ring-blue-500 z-10' : ''}
+                                ${activeCell && activeCell.r !== r && activeCell.c !== c ? 'opacity-50' : ''}
+                                `}
+                            />
+                            ))
+                        ))}
+                        </div>
+                    </div>
+                    </div>
+
+                    <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-lg">
+                            <Icon name="Calculator" size={24} />
+                        </div>
+                        <div>
+                        <div className="text-xs font-bold text-slate-500 uppercase">Determinant</div>
+                        <div className="text-3xl font-bold font-serif">{calculateDet()}</div>
+                        </div>
+                    </div>
+
+                    <div className="text-sm text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                        {activeCell ? (
+                        <>
+                            <p className="font-bold mb-2">Cofactor Expansion at ({activeCell.r+1}, {activeCell.c+1})</p>
+                            <div className="flex items-center gap-4">
+                            <div className="text-2xl font-serif">
+                                {Math.pow(-1, activeCell.r + activeCell.c) > 0 ? '+' : '-'}{vals[activeCell.r][activeCell.c]}
+                            </div>
+                            <div className="text-xl">×</div>
+                            <div className="grid grid-cols-2 gap-1 p-2 border-l border-r border-slate-400">
+                                {getCofactor(activeCell.r, activeCell.c).map((v, i) => (
+                                <span key={i} className="w-6 h-6 flex items-center justify-center font-mono text-xs bg-slate-100 dark:bg-slate-700 rounded text-slate-700 dark:text-slate-200">{v}</span>
+                                ))}
+                            </div>
+                            </div>
+                            <p className="mt-2 text-xs italic opacity-75">
+                            The determinant uses the "Minor" formed by crossing out the active row and column.
+                            </p>
+                        </>
+                        ) : (
+                        <p className="flex items-center gap-2">
+                            <Icon name="Move" className="animate-bounce w-4 h-4" />
+                            Tap any number in the matrix to see its minor and cofactor contribution!
+                        </p>
+                        )}
+                    </div>
+                    </div>
+                </div>
+                </div>
+            );
+        };
+
+        const slides = [
+            {
+                id: 'intro',
+                title: 'Matrix Decompositions',
+                render: () => (
+                <div className="space-y-6">
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-2xl shadow-xl">
+                    <h1 className="text-3xl md:text-5xl font-bold mb-4">Eigenvalues & Eigenvectors</h1>
+                    <p className="text-blue-100 text-lg md:text-xl leading-relaxed">
+                        Unlocking the hidden structure of data.
+                    </p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <Icon name="Layers" className="w-8 h-8 text-blue-500 mb-3" />
+                        <h3 className="font-bold mb-2">Summarize</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Capture the essence of a massive matrix in a few numbers.</p>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <Icon name="Grid" className="w-8 h-8 text-purple-500 mb-3" />
+                        <h3 className="font-bold mb-2">Decompose</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Break complex transformations into simple stretches and rotations.</p>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <Icon name="TrendingUp" className="w-8 h-8 text-green-500 mb-3" />
+                        <h3 className="font-bold mb-2">Approximate</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">The foundation of PCA, Compression, and Machine Learning.</p>
+                    </div>
+                    </div>
+                </div>
+                )
+            },
+            {
+                id: 'definition',
+                title: 'The Core Definition',
+                render: () => (
+                <div className="space-y-8">
+                    <Card className="p-6 bg-slate-50 dark:bg-slate-900 border-l-4 border-blue-500">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <Icon name="Lightbulb" className="text-yellow-500" />
+                        Definition
+                    </h2>
+                    <div className="text-lg leading-loose font-serif text-slate-800 dark:text-slate-200">
+                        An <span className="font-bold text-blue-600">eigenvector</span> of a matrix <span className="italic">A</span> is a non-zero vector <span className="font-bold italic">x</span> such that:
+                        <div className="my-6 text-3xl text-center bg-white dark:bg-slate-800 py-4 rounded-lg shadow-inner">
+                        Ax = λx
+                        </div>
+                        Where <span className="font-bold text-green-600">λ</span> (lambda) is a scalar called the <span className="font-bold text-green-600">eigenvalue</span>.
+                    </div>
+                    </Card>
+
+                    <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Try it yourself:</h3>
+                    <p className="text-slate-600 dark:text-slate-400">
+                        Most vectors get knocked off their span (change direction) when multiplied by A. 
+                        Can you find the special ones that stay on their line?
+                    </p>
+                    <VectorPlayground />
+                    </div>
+                </div>
+                )
+            },
+            {
+                id: 'calculation',
+                title: 'Finding Eigenvalues',
+                render: () => (
+                <div className="space-y-6">
+                    <p className="text-lg text-slate-700 dark:text-slate-300">
+                    To find λ, we solve the characteristic equation:
+                    </p>
+                    <div className="p-6 bg-slate-800 text-white rounded-xl text-center font-mono text-xl shadow-lg">
+                    det(A - λI) = 0
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-lg border-b dark:border-slate-700 pb-2">Why Determinants?</h3>
+                        <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                        <li className="flex gap-2">
+                            <Icon name="CheckCircle2" className="w-5 h-5 text-green-500 shrink-0" />
+                            <span>If det(A) ≠ 0, the matrix is invertible.</span>
+                        </li>
+                        <li className="flex gap-2">
+                            <Icon name="CheckCircle2" className="w-5 h-5 text-green-500 shrink-0" />
+                            <span>We need (A - λI)x = 0 to have a non-trivial solution (x ≠ 0).</span>
+                        </li>
+                        <li className="flex gap-2">
+                            <Icon name="CheckCircle2" className="w-5 h-5 text-green-500 shrink-0" />
+                            <span>This only happens if (A - λI) is singular (non-invertible).</span>
+                        </li>
+                        <li className="flex gap-2">
+                            <Icon name="CheckCircle2" className="w-5 h-5 text-green-500 shrink-0" />
+                            <span>Therefore, determinant must be zero.</span>
+                        </li>
+                        </ul>
+                    </div>
+                    
+                    <Card className="p-4 bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/30">
+                        <h3 className="font-bold text-orange-700 dark:text-orange-400 mb-2">Triangular Matrix Hack</h3>
+                        <p className="text-sm text-orange-800 dark:text-orange-200 mb-4">
+                        If a matrix is triangular (all zeros above or below diagonal), the eigenvalues are just the diagonal entries!
+                        </p>
+                        <div className="font-mono bg-white dark:bg-slate-900 p-3 rounded text-center text-sm">
+                        [[<span className="text-green-600 font-bold">1</span>, 2, 3],<br/>
+                            [0, <span className="text-green-600 font-bold">5</span>, 6],<br/>
+                            [0, 0, <span className="text-green-600 font-bold">9</span>]]<br/>
+                        <span className="block mt-2 text-slate-500 dark:text-slate-400">λ = 1, 5, 9</span>
+                        </div>
+                    </Card>
+                    </div>
+                </div>
+                )
+            },
+            {
+                id: 'determinants',
+                title: 'Interactive Determinants',
+                render: () => (
+                <div className="space-y-6">
+                    <p className="text-slate-600 dark:text-slate-400">
+                    Calculating determinants for 3x3 matrices involves "Expansion by Cofactors". 
+                    Tap the grid below to visualize how the minor is selected.
+                    </p>
+                    <DeterminantCalc />
+                </div>
+                )
+            },
+            {
+                id: 'spectral',
+                title: 'The Spectral Theorem',
+                render: () => (
+                <div className="space-y-8">
+                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-xl">
+                    <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-4">
+                        For Symmetric Matrices
+                    </h2>
+                    <div className="grid gap-6">
+                        <div className="flex items-start gap-4">
+                        <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">1</div>
+                        <div>
+                            <h4 className="font-bold">Real Eigenvalues</h4>
+                            <p className="text-sm text-slate-400">All roots of the characteristic polynomial are real numbers. No imaginary complexity.</p>
+                        </div>
+                        </div>
+                        <div className="flex items-start gap-4">
+                        <div className="bg-purple-500/20 p-2 rounded-lg text-purple-400">2</div>
+                        <div>
+                            <h4 className="font-bold">Orthogonal Basis</h4>
+                            <p className="text-sm text-slate-400">Eigenvectors from different eigenvalues are perpendicular (orthogonal). They form a perfect coordinate system.</p>
+                        </div>
+                        </div>
+                        <div className="flex items-start gap-4">
+                        <div className="bg-green-500/20 p-2 rounded-lg text-green-400">3</div>
+                        <div>
+                            <h4 className="font-bold">Decomposition</h4>
+                            <p className="font-mono text-lg mt-1">A = QΛQ<sup className="text-xs">T</sup></p>
+                            <p className="text-sm text-slate-400 mt-1">Q is the matrix of eigenvectors, Λ is the diagonal matrix of eigenvalues.</p>
+                        </div>
+                        </div>
+                    </div>
+                    </div>
+                    
+                    <Card className="p-6">
+                    <h3 className="font-bold text-lg mb-3">Why this matters for ML?</h3>
+                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                        In Machine Learning, we often deal with covariance matrices (which are symmetric). 
+                        The Spectral Theorem guarantees we can rotate our data into a new basis where features are uncorrelated. 
+                        This is exactly what <strong>Principal Component Analysis (PCA)</strong> does!
+                    </p>
+                    </Card>
+                </div>
+                )
+            }
+        ];
+
+        const ProgressBar = ({ current, total }) => {
+            return (
+                <div className="h-1 bg-slate-200 dark:bg-slate-700 w-full">
+                <div 
+                    className="h-full bg-blue-600 transition-all duration-300"
+                    style={{ width: `${((current + 1) / total) * 100}%` }}
+                ></div>
+                </div>
+            );
+        };
+
+        const MainApp = () => {
+            const [currentSlide, setCurrentSlide] = useState(0);
+            const [menuOpen, setMenuOpen] = useState(false);
+
+            const nextSlide = () => setCurrentSlide(prev => Math.min(prev + 1, slides.length - 1));
+            const prevSlide = () => setCurrentSlide(prev => Math.max(prev - 1, 0));
+
+            return (
+                <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-24">
+                
+                {/* Header */}
+                <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+                    <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+                    <div className="font-bold text-lg flex items-center gap-2">
+                        <Icon name="Sigma" className="text-blue-600" />
+                        <span className="hidden sm:inline">Matrix Decompositions</span>
+                        <span className="sm:hidden">Lecture 4</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                        <span className="text-sm text-slate-500 font-mono">
+                        {currentSlide + 1} / {slides.length}
+                        </span>
+                        <button onClick={() => setMenuOpen(!menuOpen)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                        <Icon name="Menu" size={20} />
+                        </button>
+                    </div>
+                    </div>
+                    <ProgressBar current={currentSlide} total={slides.length} />
+                </header>
+
+                {/* Menu Overlay */}
+                {menuOpen && (
+                    <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setMenuOpen(false)}>
+                    <div className="absolute right-0 top-0 bottom-0 w-64 bg-white dark:bg-slate-900 shadow-2xl p-4 overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <h3 className="font-bold text-slate-500 uppercase text-xs mb-4 mt-16 px-2">Table of Contents</h3>
+                        <div className="space-y-1">
+                        {slides.map((s, idx) => (
+                            <button
+                            key={s.id}
+                            onClick={() => { setCurrentSlide(idx); setMenuOpen(false); }}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                currentSlide === idx 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium' 
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                            }`}
+                            >
+                            {idx + 1}. {s.title}
+                            </button>
+                        ))}
+                        </div>
+                    </div>
+                    </div>
+                )}
+
+                {/* Main Content Area */}
+                <main className="max-w-3xl mx-auto px-4 py-8">
+                    <div className="mb-6">
+                    <h2 className="text-2xl md:text-3xl font-bold mb-2">{slides[currentSlide].title}</h2>
+                    </div>
+                    
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {slides[currentSlide].render()}
+                    </div>
+                </main>
+
+                {/* Bottom Navigation */}
+                <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-4 z-30">
+                    <div className="max-w-3xl mx-auto flex justify-between gap-4">
+                    <Button 
+                        onClick={prevSlide} 
+                        disabled={currentSlide === 0}
+                        variant="secondary"
+                        className="flex-1"
+                    >
+                        <Icon name="ArrowLeft" size={18} /> Previous
+                    </Button>
+                    <Button 
+                        onClick={nextSlide} 
+                        disabled={currentSlide === slides.length - 1}
+                        className="flex-1"
+                    >
+                        Next <Icon name="ArrowRight" size={18} />
+                    </Button>
+                    </div>
+                </div>
+
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MainApp />);
+    </script>
+</body>
+</html>
+

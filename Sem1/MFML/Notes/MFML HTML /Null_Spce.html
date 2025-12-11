@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Null Space Construction Lab (Fixed)</title>
+    <!-- Load MathJax for LaTeX rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        
+        /* UI Overlay */
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(30, 30, 30, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #444;
+            width: 320px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        h1 { font-size: 18px; margin: 0 0 10px 0; color: #4facfe; border-bottom: 1px solid #555; padding-bottom: 10px; }
+        p { font-size: 13px; color: #ccc; line-height: 1.4; margin-bottom: 15px; }
+
+        .control-group { margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+        label { font-size: 13px; cursor: pointer; user-select: none; }
+        
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; flex-shrink: 0; margin-left: 10px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #4facfe; }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .legend-item { display: flex; align-items: center; margin-top: 5px; font-size: 12px; color: #aaa; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; flex-shrink: 0;}
+
+        #equation-display {
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-size: 12px;
+            text-align: center;
+            border: 1px dashed #555;
+        }
+
+        #matrix-display {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #444;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .label {
+            color: white;
+            font-family: sans-serif;
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 12px;
+            position: absolute;
+            top: 0; left: 0;
+            white-space: nowrap;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 10;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-panel">
+        <h1>Linear Algebra Visualizer</h1>
+        <p>Explore the geometry of \(Ax=0\)</p>
+        
+        <div id="matrix-display">
+            \[ A = \begin{bmatrix} 1 & -2 & 1 \\ 2 & -4 & 2 \\ 3 & -6 & 3 \end{bmatrix} \]
+        </div>
+
+        <div class="control-group">
+            <label>1. Null Basis <br><span style="color:#aaa; font-size:11px;">\(v_1, v_2\) (In Plane)</span></label>
+            <label class="switch">
+                <input type="checkbox" id="toggleVectors" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="control-group">
+            <label>2. Null Space <br><span style="color:#aaa; font-size:11px;">Plane \(x_1 - 2x_2 + x_3 = 0\)</span></label>
+            <label class="switch">
+                <input type="checkbox" id="togglePlane">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="control-group">
+            <label style="color: #ffcc00;">3. Row Space <br><span style="color:#aaa; font-size:11px;">Line \(\perp\) to Plane</span></label>
+            <label class="switch">
+                <input type="checkbox" id="toggleRowSpace">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="control-group">
+            <label style="color: #00ff00;">4. Column Space <br><span style="color:#aaa; font-size:11px;">Line (Output)</span></label>
+            <label class="switch">
+                <input type="checkbox" id="toggleColSpace">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div id="equation-display">
+            \(Rank(1) + Nullity(2) = 3\)
+        </div>
+
+        <div style="margin-top: 20px; border-top: 1px solid #444; padding-top: 10px;">
+            <div class="legend-item"><div class="dot" style="background: #00ffff;"></div> Null Space (Input Plane)</div>
+            <div class="legend-item"><div class="dot" style="background: #ffcc00;"></div> Row Space (Perpendicular)</div>
+            <div class="legend-item"><div class="dot" style="background: #00ff00;"></div> Column Space (Output Line)</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Init Scene ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+        scene.fog = new THREE.Fog(0x1a1a1a, 10, 50);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(12, 6, 12); 
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 7);
+        scene.add(dirLight);
+
+        // --- MAPPING LOGIC ---
+        // Math: x1, x2, x3
+        // ThreeJS: x, z, y (y is up)
+        
+        const axesGroup = new THREE.Group();
+        // x1 -> Red (X)
+        axesGroup.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 6, 0xff4444, 0.5, 0.3));
+        // x2 -> Green (Z) - Wait, in math visualizers often Z is Up, but ThreeJS Y is Up.
+        // Let's stick to our previous mapping: x1->X, x2->Z, x3->Y(Up)
+        axesGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 6, 0x44ff44, 0.5, 0.3)); // x2
+        axesGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 6, 0x4444ff, 0.5, 0.3)); // x3
+        axesGroup.add(new THREE.GridHelper(20, 20, 0x444444, 0x222222));
+        scene.add(axesGroup);
+
+        // --- OBJECTS ---
+
+        // 1. VECTORS
+        const vectorsGroup = new THREE.Group();
+        // v1 = [2, 1, 0] -> (2, 0, 1)
+        const v1_vec = new THREE.Vector3(2, 0, 1);
+        vectorsGroup.add(new THREE.ArrowHelper(v1_vec.clone().normalize(), new THREE.Vector3(0,0,0), v1_vec.length(), 0xff4444, 0.3, 0.2));
+        // v2 = [-1, 0, 1] -> (-1, 1, 0)
+        const v2_vec = new THREE.Vector3(-1, 1, 0);
+        vectorsGroup.add(new THREE.ArrowHelper(v2_vec.clone().normalize(), new THREE.Vector3(0,0,0), v2_vec.length(), 0x4444ff, 0.3, 0.2));
+        scene.add(vectorsGroup);
+
+        // 2. NULL SPACE PLANE
+        // x1 - 2x2 + x3 = 0 -> x1 = 2x2 - x3
+        const planeSize = 8;
+        const geometry = new THREE.PlaneGeometry(planeSize * 2, planeSize * 2, 20, 20);
+        const count = geometry.attributes.position.count;
+        const positions = geometry.attributes.position.array;
+        
+        for (let i = 0; i < count; i++) {
+            const s = positions[i * 3];     // acts as x2 (Z)
+            const t = positions[i * 3 + 1]; // acts as x3 (Y)
+            // But PlaneGeometry default is XY plane. So inputs are X and Y.
+            // Let's treat input X as s(x2) and input Y as t(x3)
+            
+            // Math: x1 = 2*x2 - x3 => x1 = 2*s - t
+            const x1 = 2*s - t;
+            const x2 = s;
+            const x3 = t;
+
+            // Map to ThreeJS (x1, x3, x2) -> (x, y, z)
+            positions[i * 3] = x1;
+            positions[i * 3 + 1] = x3;
+            positions[i * 3 + 2] = x2;
+        }
+        geometry.computeVertexNormals();
+        const planeMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x00ffff, side: THREE.DoubleSide, transparent: true, opacity: 0.3,
+            metalness: 0.1, roughness: 0.1, clearcoat: 1.0, depthWrite: false
+        });
+        const nullSpacePlane = new THREE.Mesh(geometry, planeMaterial);
+        nullSpacePlane.visible = false;
+        scene.add(nullSpacePlane);
+
+
+        // 3. ROW SPACE (The Fix)
+        // Row Vector = [1, -2, 1]. In ThreeJS (x, y, z) -> (1, 1, -2)
+        const rowVec = new THREE.Vector3(1, 1, -2); // Correct Mapping
+        const rowSpaceGroup = new THREE.Group();
+
+        // Create Rod Function
+        function createRod(vector, color) {
+            const len = 40;
+            const geom = new THREE.CylinderGeometry(0.06, 0.06, len, 12);
+            const mat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.3 });
+            const mesh = new THREE.Mesh(geom, mat);
+            
+            // Align Cylinder (Default Y axis) to Vector
+            const axis = new THREE.Vector3(0, 1, 0);
+            mesh.quaternion.setFromUnitVectors(axis, vector.clone().normalize());
+            
+            return mesh;
+        }
+
+        const rowRod = createRod(rowVec, 0xffcc00);
+        rowSpaceGroup.add(rowRod);
+        rowSpaceGroup.visible = false;
+        scene.add(rowSpaceGroup);
+
+
+        // 4. COLUMN SPACE
+        // Col Vector = [1, 2, 3]. In ThreeJS (x, y, z) -> (1, 3, 2)
+        const colVec = new THREE.Vector3(1, 3, 2);
+        const colSpaceGroup = new THREE.Group();
+        const colRod = createRod(colVec, 0x00ff00);
+        colSpaceGroup.add(colRod);
+        colSpaceGroup.visible = false;
+        scene.add(colSpaceGroup);
+
+
+        // --- UI & LABELS ---
+        document.getElementById('toggleVectors').addEventListener('change', (e) => vectorsGroup.visible = e.target.checked);
+        document.getElementById('togglePlane').addEventListener('change', (e) => nullSpacePlane.visible = e.target.checked);
+        document.getElementById('toggleRowSpace').addEventListener('change', (e) => rowSpaceGroup.visible = e.target.checked);
+        document.getElementById('toggleColSpace').addEventListener('change', (e) => colSpaceGroup.visible = e.target.checked);
+
+        function createLabel(text, color='white') {
+            const div = document.createElement('div');
+            div.className = 'label';
+            div.textContent = text;
+            div.style.color = color;
+            document.body.appendChild(div);
+            return div;
+        }
+
+        const labelX = createLabel("x1");
+        const labelY = createLabel("x3"); 
+        const labelZ = createLabel("x2");
+        const labelRow = createLabel("Row Space [1, -2, 1]", "#ffcc00");
+        const labelCol = createLabel("Column Space [1, 2, 3]", "#00ff00");
+
+        function updateLabels() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const widthHalf = width / 2;
+            const heightHalf = height / 2;
+
+            function positionLabel(pos, element, visible=true) {
+                if(!visible) { element.style.display='none'; return; }
+                const v = pos.clone().project(camera);
+                if(v.z > 1) { element.style.display='none'; return; }
+                element.style.display='block';
+                element.style.left = (v.x * widthHalf + widthHalf) + 'px';
+                element.style.top = (-(v.y * heightHalf) + heightHalf) + 'px';
+            }
+
+            positionLabel(new THREE.Vector3(6.5, 0, 0), labelX);
+            positionLabel(new THREE.Vector3(0, 6.5, 0), labelY);
+            positionLabel(new THREE.Vector3(0, 0, 6.5), labelZ);
+            
+            positionLabel(rowVec.clone().normalize().multiplyScalar(7), labelRow, rowSpaceGroup.visible);
+            positionLabel(colVec.clone().normalize().multiplyScalar(7), labelCol, colSpaceGroup.visible);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            updateLabels();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
